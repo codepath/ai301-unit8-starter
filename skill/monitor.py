@@ -86,6 +86,9 @@ FIRST_RUN_FEEDBACK_DAYS = 14
 # gh_read() refuses to run anything not on this list, so "the monitor
 # never posts" is enforced in code, not just promised in prose.
 READONLY_GH = {("auth", "status"), ("pr", "view"), ("repo", "view")}
+# One more read, allowed only in exactly this form: who is logged in, so
+# the monitor can tell when the PR on this branch is someone else's.
+WHOAMI = ("api", "user", "--jq", ".login")
 
 PR_FIELDS = ",".join([
     "number", "title", "url", "state", "isDraft", "author",
@@ -118,7 +121,7 @@ def gh_read(*args: str, cwd=None):
     """Run one gh command from the read-only allowlist. Any other gh
     invocation is refused here, before it exists: the monitor reads
     PR state and does nothing else."""
-    if tuple(args[:2]) not in READONLY_GH:
+    if tuple(args[:2]) not in READONLY_GH and tuple(args) != WHOAMI:
         raise MonitorStop(
             f"the monitor tried to run `gh {' '.join(args[:2])}`, which "
             "is not on its read-only allowlist. That is a bug in the "
@@ -246,14 +249,11 @@ def _section_has_content(body: str) -> bool:
                for ln in stripped.splitlines())
 
 
-def load_playbook() -> str:
+def playbook_gaps() -> list[str] | None:
+    """The playbook sections still empty, or None when there is no
+    playbook file at all."""
     if not PLAYBOOK_PATH.is_file():
-        raise MonitorStop(
-            f"no playbook at {PLAYBOOK_PATH}. The playbook is the part "
-            "you write: place it from the template "
-            f"(cp {TEMPLATE_PATH} {PLAYBOOK_PATH}), fill its four "
-            "sections in your own words, then run again. The monitor "
-            "will not invent your thresholds at runtime.")
+        return None
     text = PLAYBOOK_PATH.read_text(encoding="utf-8", errors="replace")
     sections = _sections(strip_comments(text))
     empty = []
@@ -261,16 +261,39 @@ def load_playbook() -> str:
         key = next((k for k in sections if k.startswith(wanted)), None)
         if key is None or not _section_has_content(sections[key]):
             empty.append(wanted)
-    if empty:
+    return empty
+
+
+def playbook_line() -> str:
+    gaps = playbook_gaps()
+    if gaps is None:
+        return f"playbook: not found at {PLAYBOOK_PATH}"
+    if gaps:
+        return ("playbook: a full run will stop until you fill in "
+                f"{'; '.join(gaps)}")
+    return "playbook: all four sections filled in, ready for a full run"
+
+
+def load_playbook() -> str:
+    gaps = playbook_gaps()
+    if gaps is None:
+        raise MonitorStop(
+            f"no playbook at {PLAYBOOK_PATH}. The playbook is the part "
+            "you write: place it from the template "
+            f"(cp {TEMPLATE_PATH} {PLAYBOOK_PATH}), fill its four "
+            "sections in your own words, then run again. No Claude call "
+            "was made, so this run cost nothing.")
+    if gaps:
         raise MonitorStop(
             "REFUSAL. Your playbook still has sections with no rules of "
-            f"yours: {'; '.join(empty)}. The monitor drafts from your "
+            f"yours: {'; '.join(gaps)}. The monitor drafts from your "
             "rules, so it won't draft without them (a nudge with no "
             "threshold behind it would be the monitor's call, not "
             f"yours). Fill in those sections in {PLAYBOOK_PATH}, under "
-            "a page, then run again. --state works now, because "
-            "reading the state needs no rules.")
-    return text
+            "a page, then run again. No Claude call was made, so this "
+            "run cost nothing. --state works now, because reading the "
+            "state needs no rules.")
+    return PLAYBOOK_PATH.read_text(encoding="utf-8", errors="replace")
 
 
 def load_form(name: str) -> str:
@@ -672,7 +695,7 @@ def state_report(root: Path, branch: str, pr: dict | None,
             f"({gate_log_note()}). The monitor has nothing to read "
             "until the ship-gate passes and you open the PR.",
             "",
-            "Your PR is open? Read the repository line above first. "
+            "Opened your PR already? Read the repository line above first. "
             "If it names your fork, gh is looking for the PR in the "
             "wrong place: run `gh repo set-default <owner>/<repo>` "
             "with the original repo's owner and name (unit 7, step "
@@ -834,6 +857,32 @@ def run_draft(playbook: str, move: str, form: str, report: str,
 # The runs
 # ---------------------------------------------------------------------------
 
+def logged_in_user(root: Path) -> str | None:
+    """The gh login, or None if gh won't say (the check is skipped
+    then, never a stop)."""
+    try:
+        proc = gh_read(*WHOAMI, cwd=root)
+    except MonitorStop:
+        return None
+    login = (proc.stdout or "").strip()
+    return login if proc.returncode == 0 and login else None
+
+
+def someone_elses_pr(root: Path, pr: dict | None) -> str | None:
+    """A warning when the PR gh found for this branch was opened by
+    someone other than the logged-in user, else None."""
+    if not pr:
+        return None
+    author = (pr.get("author") or {}).get("login", "")
+    me = logged_in_user(root)
+    if not me or not author or author.lower() == me.lower():
+        return None
+    return (f"PR #{pr.get('number', '?')} on this branch was opened by "
+            f"{author}, not by you ({me}). The monitor only drafts for "
+            "your own PR. Switch to your PR's branch "
+            "(`git switch <your branch>`) and run again.")
+
+
 def preflight() -> tuple[Path, str]:
     ensure_installed()
     root = repo_root(Path.cwd())
@@ -856,8 +905,12 @@ def state_run() -> int:
         _, prev_stamp, _ = last_full_run(pr.get("url", "?"))
         state, line, notes = classify(pr, None, prev_stamp)
     report = state_report(root, branch, pr, state, line, notes)
-    print(report)
-    print("pr-monitor: state only. No Claude call was made and nothing "
+    print(report.rstrip("\n"))
+    print(f"- {playbook_line()}")
+    other = someone_elses_pr(root, pr)
+    if other:
+        print(f"- WARNING: {other}")
+    print("\npr-monitor: state only. No Claude call was made and nothing "
           "was drafted. A full run (no flag) drafts the matching move.")
     write_log("state", root, branch, pr, state, line,
               "none (--state only)")
@@ -888,6 +941,10 @@ def full_run() -> int:
     root, branch = preflight()
     playbook = load_playbook()
     pr = gather_state(root, branch)
+    other = someone_elses_pr(root, pr)
+    if other:
+        raise MonitorStop(other + " No Claude call was made, so this run "
+                          "cost nothing.")
 
     draft = None
     if pr is None:

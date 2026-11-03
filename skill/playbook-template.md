@@ -31,8 +31,10 @@ sentence" decides a case, "be professional" doesn't. 1 to 3 rules. -->
 
 <!-- How many quiet days are normal for your repo before you'd
 nudge? Check CONTRIBUTING.md for a stated wait, then look at five
-recent merged PRs and how many days each waited for a maintainer's
-first reply. Write a number of days and the reason. A different number
+recent merged PRs from outside contributors (skip ones a maintainer or
+a bot opened, since those merge fast) and how many days each waited
+for a maintainer's first comment, review, or merge. Pick a number a
+few days past the usual wait, and write it with the reason. A different number
 for a first review and for a stalled review is fine. The monitor counts
 quiet days as days since anyone but you commented. -->
 

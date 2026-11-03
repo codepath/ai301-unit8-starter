@@ -55,9 +55,11 @@ python3 ~/.claude/pr-monitor/monitor.py --state
 ```
 
 This prints your PR's state: its checks, the review decision, the
-comments, how many days it's been quiet, and whether it can merge. It
-makes no Claude call and drafts nothing, so it's free, and it works
-before your playbook is written.
+comments, how many days it's been quiet, and whether it can merge. Its
+last lines say whether your playbook is ready for a full run, and warn
+you if the PR on this branch isn't yours. It makes no Claude call and
+drafts nothing, so it's free, and it works before your playbook is
+written.
 
 Some of the words in the state are GitHub's:
 
@@ -84,10 +86,12 @@ available), so an old bot comment doesn't read as news.
 
 - You haven't opened your PR: that's expected. Open it first (the unit
   7 Assignment tab), then run this again.
-- Your PR is open: read the line that names the repository. The
+- You've opened your PR (even if it's merged or closed now): read
+  the line that names the repository. The
   monitor looks for your PR there. If it names your fork, run
   `gh repo set-default <owner>/<repo>` with the original repo's owner
-  and name (unit 7, step 11), then run again. If the repository is
+  and name (unit 7, step 11). It prints nothing when it works. Then
+  run again. If the repository is
   right, check that you're on your PR's branch, or run
   `gh pr checkout <number>` to switch to it.
 
@@ -131,8 +135,12 @@ done.
 - **Not inside a git clone.** `cd` into the clone of your fork and
   switch to your PR's branch, because the branch is how it finds your
   PR.
-- **`NO PR YET` for a PR you know is open.** gh is looking in the
+- **`NO PR YET` for a PR you've opened.** gh is looking in the
   wrong repository, usually your fork. Section 2 has the fix.
+- **The PR on this branch was opened by someone else.** You're on the
+  wrong branch, often `main`, which can match a stranger's PR. Switch
+  to your PR's branch (`git switch <your branch>`) and run again.
+  `--state` shows the same thing as a warning.
 - **gh is not logged in, or is rate-limited.** The stop quotes what gh
   said. Run `gh auth status` to see it, and `gh auth login` to log in.
   A rate limit clears on its own.
@@ -195,9 +203,12 @@ git push --force-with-lease origin <your branch>
 
 - Run the first command only if `git fetch upstream` fails. Your
   clone's `origin` is your fork, and `upstream` is the original repo.
-- Where git stops on a conflict, fix the file, then
-  `git add <file>` and `git rebase --continue`. If it goes wrong,
-  `git rebase --abort` puts your branch back the way it was.
+- Where git stops on a conflict, run `git status` to see which files
+  conflict. In each one, git marks the clash with `<<<<<<<`, `=======`,
+  and `>>>>>>>` lines. Keep the lines that belong (often some of both
+  sides), delete the three marker lines, then run `git add <file>` and
+  `git rebase --continue`. If it goes wrong, `git rebase --abort` puts
+  your branch back the way it was.
 - Before you push, run each command in your `ship-manifest.md`'s
   first table again.
 - The rebase rewrote your branch, so a plain `git push` is rejected.
