@@ -57,7 +57,8 @@ from pathlib import Path
 MODEL = "sonnet"
 
 # Paths resolve from where this file is installed (~/.claude/pr-monitor/,
-# where INSTALL.md's copy puts it), the unit-6/7 convention: the
+# where INSTALL.md's copy puts it), the same layout as the voice guard
+# and the ship-gate: the
 # runner's home is the .claude directory it sits in.
 MONITOR_DIR = Path(__file__).resolve().parent
 CLAUDE_DIR = MONITOR_DIR.parent
@@ -81,7 +82,7 @@ MAX_BODY_CHARS = 12_000
 FIRST_RUN_FEEDBACK_DAYS = 14
 
 # Everything the monitor is allowed to ask gh, in full. Read-only by
-# construction (gate answer 1): no write subcommand appears here, and
+# construction: no write subcommand appears here, and
 # gh_read() refuses to run anything not on this list, so "the monitor
 # never posts" is enforced in code, not just promised in prose.
 READONLY_GH = {("auth", "status"), ("pr", "view"), ("repo", "view")}
@@ -514,7 +515,7 @@ def classify(pr: dict, prev_fp: str | None, prev_stamp: str | None,
              prev_merge: str | None = None) -> tuple[str, str,
                                                      list[str]]:
     """(state id, one honest line, secondary notes). The state ids are
-    the lecture's card grid; one move per run, the rest noted.
+    the states a full run can report; one move per run, the rest noted.
 
     Feedback-in means the ball is plausibly in the author's court: a
     reviewer has requested changes, the newest thread event is a

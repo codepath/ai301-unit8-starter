@@ -80,8 +80,8 @@ If the threshold is met, draft ONE message:
   assume the reader remembers the thread.
 - One ask, and only one: a review, a re-review, or an answer to one
   named question.
-- No @-pile, no urgency theater, no guilt. The unit-6 claim-craft
-  rules carry unchanged: maintainer time is a gift, silence is
+- No @-pile, no urgency theater, no guilt. The pings rules from the
+  author's unit 6 voice guide carry over unchanged: maintainer time is a gift, silence is
   usually a queue, and one polite surfacing is the entire move.
 - Apply the playbook's Nudge etiquette on top; the author's rules
   win where stricter.
@@ -98,7 +98,7 @@ The PR is merged. Draft the short close of the loop:
   issue, without volunteering for it in this message.
 - Nothing else. A merged thread is a finished conversation; the
   author's record keeping (the contribution story's Status line and
-  Maintainer Feedback log, the unit-8 Toolkit entry) happens in the
+  Maintainer Feedback log, the Unit 8 Toolkit entry) happens in the
   course repo, not in the maintainer's thread.
 - In the bracketed author-notes, not in the draft: a second
   contribution is welcome now that the loop is cheap, never required,
