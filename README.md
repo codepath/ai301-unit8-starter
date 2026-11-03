@@ -42,7 +42,7 @@ the GitHub CLI, logged in (`gh auth status`).
   stricter.
 - `skill/INSTALL.md`: what the install does, how to check that the
   monitor can see your PR, how a full run works, what to do when it
-  stops, and how to post a draft.
+  stops, how to post a draft, and how to run a rebase plan.
 
 You write no code this unit. What you write is your playbook.
 

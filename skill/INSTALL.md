@@ -46,10 +46,11 @@ update the monitor's own files and never touch `playbook.md`.
 
 ## 2. Check that it can see your PR
 
-From the clone of your fork, on your PR's branch (the monitor finds
-your PR by the branch you're on):
+From the clone of your fork, switch to your PR's branch (the monitor
+finds your PR by the branch you're on), then run the monitor:
 
 ```
+git switch <your branch>
 python3 ~/.claude/pr-monitor/monitor.py --state
 ```
 
@@ -171,10 +172,34 @@ claude "run this command: gh pr comment <PR URL> --body-file my-reply.md"
 Keep the file in your clone and the path short, because the voice
 guard reads the file from the folder the command runs in and can't
 follow a `~/...` path. Your unit 6 voice guard checks it against your
-voice guide before it posts. If the guard stops it, fix the line it quotes and run the
-command again. Posting from the browser instead? Check the file with
-the guard first, the way unit 6 showed you:
+voice guide before it posts. If the guard stops it, fix the line it
+quotes and run the command again. Posting from the browser instead?
+Check the file with the guard first, the way unit 6 showed you:
 
 ```
 python3 ~/.claude/voice-guard/check_voice.py --draft my-reply.md
 ```
+
+## 6. Running a rebase plan
+
+A rebase plan is for you to run, on your branch. Nothing gets posted.
+The plan names the exact commands for your PR, and they usually look
+like this:
+
+```
+git remote add upstream https://github.com/<owner>/<repo>.git
+git fetch upstream
+git rebase upstream/<base branch>
+git push --force-with-lease origin <your branch>
+```
+
+- Run the first command only if `git fetch upstream` fails. Your
+  clone's `origin` is your fork, and `upstream` is the original repo.
+- Where git stops on a conflict, fix the file, then
+  `git add <file>` and `git rebase --continue`. If it goes wrong,
+  `git rebase --abort` puts your branch back the way it was.
+- Before you push, run each command in your `ship-manifest.md`'s
+  first table again.
+- The rebase rewrote your branch, so a plain `git push` is rejected.
+  `--force-with-lease` replaces your fork's copy of the branch, and
+  refuses if someone else pushed to it since you fetched.
