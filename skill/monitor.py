@@ -1,72 +1,46 @@
 #!/usr/bin/env python3
-"""pr-monitor: your contribution's state, read on demand, with the
-next move drafted. The toolkit's capstone: a tool that runs with no
-session open.
+"""pr-monitor: reads your pull request on GitHub and drafts your next
+move into a file. You run it yourself, from a terminal, with no Claude
+Code session open.
 
-Units 5-7 built tools that live inside an interactive session: skills
-you invoke (the scout), hooks that latch the session's doorways (the
-voice-guard, the ship-gate). The monitor is different in kind: one
-program, run from the shell, that gathers your pull request's live
-state through READ-ONLY gh calls (checks, review threads and comments
-new since your last run, days of quiet, mergeability, merged or
-closed, or the honest no-PR-yet), classifies the state, folds in YOUR
-playbook and the matching move form, makes ONE print-mode model call,
-and writes two files: the run report (the state, honestly) and the
-drafted move. Staff wrote the state reading and the move forms; the
-judgment, the thresholds, the rules, and every word that finally
-reaches a maintainer are yours.
+Run it from inside the clone of your fork, on your PR's branch:
 
-Two ways to run it, both from inside your clone, on your branch:
+  python3 ~/.claude/pr-monitor/monitor.py
+    A full run. It reads the PR through read-only gh calls (checks,
+    reviews, comments, days of quiet, mergeability, merged or
+    closed), picks the PR's state, and makes one Claude call that
+    drafts the matching move from your playbook and the move forms:
+    a reply to review, a rebase plan, a nudge (only if your own
+    staleness threshold is met) or a note to wait, or a merged
+    follow-up. It writes run-report.md and drafted-move.md beside
+    this file, and adds a dated block to monitor-log.md.
 
-  full run (no arguments): gather the state, classify it, and draft
-    the matching move: a never-defensive review response, a rebase
-    plan, a polite nudge (only if your own playbook's threshold says
-    so), or a merged follow-up. The report and the draft land in
-    this folder; every run appends a dated block to monitor-log.md.
+  python3 ~/.claude/pr-monitor/monitor.py --state
+    Prints the state and nothing else. No Claude call, no draft, no
+    cost, and no playbook needed.
 
-  --state, the free canary: gather and print the state, nothing
-    else. No model call, no draft, no cost. The wiring proof the
-    activity ends phase 2 on, and the cheap look you can take any
-    time.
+Two answers are free on a full run too, because there's nothing to
+draft. NO PR YET points you back at your ship-gate's latest report.
+NOTHING NEW means the PR and your playbook are the same as at your
+last full run on this PR, so waiting is the move, and your last
+draft stays in place.
 
-Two of the states are honest non-moves, and they are free too: the
-runner writes them itself, because there are no words to draft.
-NO-PR-YET points you back at your own ship-gate's report (that list
-is already your next move, unchanged), and NOTHING-NEW (the state
-AND your playbook are identical to your last full run's on this PR;
-the memory is kept per PR, so a run on one PR never changes how
-another is read) says that waiting is the move, and leaves your last
-draft in place.
+The monitor never posts. Every gh call it can make is in READONLY_GH
+below, and gh_read() refuses anything else. You post a reply
+yourself, through Claude Code (`gh pr comment`), where your unit 6
+voice guard checks it. The monitor never edits your branch either: a
+rebase plan is a plan you run.
 
-The monitor NEVER POSTS. Its gh calls only ever read (the whole
-allowlist is READONLY_GH below; the runner refuses to execute
-anything else); the drafted response or nudge lands in a file; and
-the words ship only by your own hand (`gh pr comment`), which your
-unit-6 voice-guard latches by construction. Two tools from two weeks
-meeting on one doorway: the monitor drafts, the guard holds your own
-voice rules, and you are the hand in between. The monitor also never
-edits your branch: a rebase plan is a plan, not an executed rebase.
+Run it when you come back to your PR, not on a schedule. Every full
+run that drafts costs a little credit, and a draft goes stale as soon
+as the thread moves.
 
-Run it on demand, when you come back to the contribution, never on a
-schedule: a loop costs money, adds nothing a working session does
-not, and drafts age as fast as threads move.
-
-Fail closed, always with the route named: no playbook, or a playbook
-still the template, refuses honestly (the unit-4 refusal register,
-carried: an empty judgment file binds nothing, and the monitor will
-not invent your thresholds at runtime); a missing gh login or a run
-from outside a clone exits with the fix quoted; a gh error that is
-not the honest no-PR-yet case stops rather than guessing.
-
-The monitor is a live-mode-only seam: nothing invokes it in eval
-mode, no eval set ships for it, and it never reads or changes the
-scout, the guard, the gate, or the Module 1 harness interfaces.
-
-Honesty note: the monitor reads your PR the way anyone can read a
-public PR. It has no special access and takes no action; skipping it
-costs you nothing but the look. What it automates is attention, not
-judgment: the thresholds are yours, and so is the send.
+When it can't do its job, it stops and says how to fix it: no
+playbook, or a playbook section still empty, a missing gh login, a
+run from outside a clone, or a gh error it doesn't recognize.
 """
+
+from __future__ import annotations
 
 import argparse
 import datetime
@@ -222,7 +196,7 @@ def repo_root(cwd: Path) -> Path:
             f"{cwd} is not inside a git clone. Run the monitor from the "
             "clone of the repository your contribution lives in, on your "
             "branch: it reads the PR for the branch you are on, the same "
-            "convention as the gate.")
+            "convention as the ship-gate.")
     return Path(proc.stdout.strip())
 
 
@@ -235,7 +209,13 @@ def current_branch(root: Path) -> str:
 
 
 def ensure_gh_auth(root: Path) -> None:
-    proc = gh_read("auth", "status", cwd=root)
+    # --active checks only the account gh will use. Plain `gh auth
+    # status` also fails when some other saved account is stale, even
+    # though reads work. gh releases older than the flag reject it, so
+    # fall back to the plain form there.
+    proc = gh_read("auth", "status", "--active", cwd=root)
+    if proc.returncode != 0 and "unknown flag" in (proc.stderr or ""):
+        proc = gh_read("auth", "status", cwd=root)
     if proc.returncode != 0:
         said = (proc.stderr or proc.stdout or "").strip()
         raise MonitorStop(
@@ -282,32 +262,32 @@ def load_playbook() -> str:
             empty.append(wanted)
     if empty:
         raise MonitorStop(
-            "REFUSAL. Your playbook still has template sections with no "
-            f"rules of yours: {'; '.join(empty)}. No rules, no monitor: "
-            "an empty judgment file binds nothing (the unit-4 refusal "
-            "register, carried), and a drafted nudge with no threshold "
-            "behind it would be the monitor's judgment, not yours. Fill "
-            f"the sections in {PLAYBOOK_PATH}, under a page, then run "
-            "again. The free canary (--state) works now: state reading "
-            "needs no judgment.")
+            "REFUSAL. Your playbook still has sections with no rules of "
+            f"yours: {'; '.join(empty)}. The monitor drafts from your "
+            "rules, so it won't draft without them (a nudge with no "
+            "threshold behind it would be the monitor's call, not "
+            f"yours). Fill in those sections in {PLAYBOOK_PATH}, under "
+            "a page, then run again. --state works now, because "
+            "reading the state needs no rules.")
     return text
 
 
 def load_form(name: str) -> str:
     if not FORMS_PATH.is_file():
         raise MonitorStop(
-            f"the move forms are missing ({FORMS_PATH}). The package is "
-            "incomplete: re-do the install's folder copy from your Week "
-            "8 materials (INSTALL.md section 1); your playbook.md is "
-            "safe, the copy never touches it.")
+            f"the move forms are missing ({FORMS_PATH}). Run the "
+            "install's copy command again from your Unit 8 materials "
+            "folder (INSTALL.md section 1). It never touches your "
+            "playbook.md.")
     sections = _sections(
         FORMS_PATH.read_text(encoding="utf-8", errors="replace"))
     key = next((k for k in sections if k.startswith(name.lower())), None)
     if key is None or not sections[key].strip():
         raise MonitorStop(
-            f"the move form '{name}' is missing from {FORMS_PATH}. The "
-            "package is incomplete: re-do the install's folder copy "
-            "(INSTALL.md section 1); your playbook.md is safe.")
+            f"the move form '{name}' is missing from {FORMS_PATH}. Run "
+            "the install's copy command again from your Unit 8 "
+            "materials folder (INSTALL.md section 1). It never touches "
+            "your playbook.md.")
     return sections[key].strip()
 
 
@@ -475,8 +455,8 @@ def last_full_run(where: str) -> tuple[str | None, str | None,
     """(fingerprint, stamp, mergeability pair) of the newest [run]
     block FOR THIS PR, or (None, None, None). The log is one file,
     but the memory is keyed per repo + PR (the header's URL), so a
-    run on one PR never changes how another is read. Free canaries
-    ([state] blocks) never count: a look is not a run, so a canary
+    run on one PR never changes how another is read. --state looks
+    ([state] blocks) never count: a look is not a run, so a --state
     right before a full run cannot turn the run into nothing-new."""
     try:
         text = LOG_PATH.read_text(encoding="utf-8", errors="replace")
@@ -513,6 +493,21 @@ def _stamp_to_days(stamp: str | None) -> float | None:
     when = when.astimezone()
     now = datetime.datetime.now().astimezone()
     return max(0.0, (now - when).total_seconds() / 86400)
+
+
+def _replied_since_changes_requested(pr: dict, author: str) -> bool:
+    """Whether the author's newest comment or review is newer than the
+    newest changes-requested review from someone else."""
+    asks = [r.get("submittedAt") or r.get("createdAt") or ""
+            for r in pr.get("reviews") or []
+            if (r.get("state") or "").upper() == "CHANGES_REQUESTED"
+            and (r.get("author") or {}).get("login", "") != author]
+    asks = [a for a in asks if a]
+    if not asks:
+        return False
+    mine = [e["when"] for e in thread_events(pr)
+            if e["who"] == author and e["when"]]
+    return bool(mine) and max(mine) > max(asks)
 
 
 def classify(pr: dict, prev_fp: str | None, prev_stamp: str | None,
@@ -556,7 +551,17 @@ def classify(pr: dict, prev_fp: str | None, prev_stamp: str | None,
     newest = events[-1] if events else None
     last_run_days = _stamp_to_days(prev_stamp)
 
-    feedback = pr.get("reviewDecision") == "CHANGES_REQUESTED"
+    # GitHub keeps CHANGES_REQUESTED until the reviewer reviews again,
+    # so the decision alone counts as feedback only while the author
+    # has not replied since the newest changes-requested review.
+    # Pushed commits alone are not a reply.
+    requested = pr.get("reviewDecision") == "CHANGES_REQUESTED"
+    answered = requested and _replied_since_changes_requested(pr, author)
+    feedback = requested and not answered
+    if answered:
+        notes.append("a reviewer requested changes and you have replied "
+                     "since; GitHub shows CHANGES_REQUESTED until they "
+                     "review again")
     if not feedback and newest and newest["who"] != author \
             and newest["kind"].startswith("review") \
             and "approved" not in newest["kind"]:
@@ -585,7 +590,7 @@ def classify(pr: dict, prev_fp: str | None, prev_stamp: str | None,
     if feedback:
         last = others[-1] if others else None
         line = "review feedback is in"
-        if pr.get("reviewDecision") == "CHANGES_REQUESTED":
+        if requested and not answered:
             line = "a reviewer has requested changes"
         if last:
             line += (f" (latest from the thread: {last['kind']} "
@@ -616,12 +621,12 @@ MOVE_FOR_STATE = {
 
 
 def gate_log_note() -> str:
-    """The no-PR-yet pointer, honest about whether the gate's log is
-    actually on this machine."""
+    """The no-PR-yet pointer, honest about whether the ship-gate's log
+    is actually on this machine."""
     if GATE_LOG.exists():
         return f"`{GATE_LOG}` holds every run, newest block last"
-    return (f"the gate's log `{GATE_LOG}` is not on this machine, so "
-            "open your latest gate report wherever you kept it")
+    return (f"the ship-gate's log `{GATE_LOG}` is not on this machine, "
+            "so open your latest ship-gate report wherever you kept it")
 
 
 def move_from_draft(drafted: str, form_name: str) -> str:
@@ -661,20 +666,18 @@ def state_report(root: Path, branch: str, pr: dict | None,
             "- state: NO PR YET (no pull request found for this "
             f"branch in {repo})",
             "",
-            "An honest state, and its move is already written: your "
-            "ship-gate's latest report is your next-step list, "
-            f"unchanged ({gate_log_note()}). The monitor has "
-            "nothing to watch until the gate passes and you open the "
-            "PR; nothing here is behind.",
+            "Haven't opened your PR yet? Your ship-gate's latest "
+            "report is your next-step list "
+            f"({gate_log_note()}). The monitor has nothing to read "
+            "until the ship-gate passes and you open the PR.",
             "",
-            "Know your PR exists? Then read the repository line "
-            "above first: gh resolves it from this clone's remotes, "
-            "so a clone of your fork looks for the PR in the fork, "
-            "where it does not live. Add the repository the PR "
-            "targets as a remote (`git remote add upstream <repo "
-            "URL>`) and run again. If the repository is right, gh "
-            "could not map this branch to the PR: `gh pr checkout "
-            "<number>` puts you on a branch it can map.",
+            "Your PR is open? Read the repository line above first. "
+            "If it names your fork, gh is looking for the PR in the "
+            "wrong place: run `gh repo set-default <owner>/<repo>` "
+            "with the original repo's owner and name (unit 7, step "
+            "11), then run again. If the repository is right, make "
+            "sure you're on your PR's branch, or run `gh pr checkout "
+            "<number>` to switch to it.",
         ]
         return "\n".join(out) + "\n"
     checks_line, _, _, _ = summarize_checks(pr.get("statusCheckRollup"))
@@ -720,7 +723,7 @@ def write_log(mode: str, root: Path, branch: str, pr: dict | None,
         with LOG_PATH.open("a", encoding="utf-8") as f:
             if f.tell() == 0:
                 f.write("# pr-monitor log (one dated block per run; "
-                        "the free canary logs as [state])\n\n")
+                        "--state runs log as [state])\n\n")
             f.write("\n".join(lines) + "\n")
     except OSError:
         pass
@@ -729,8 +732,8 @@ def write_log(mode: str, root: Path, branch: str, pr: dict | None,
 PROMPT_TEMPLATE = """You are the pr-monitor's drafting pass: one print-mode call, run
 headless, drafting the matching next move for a real open-source
 contribution. You draft; you never post. The author revises every
-word into their own voice and ships it through their own guarded
-doorway, so write a draft worth revising, not a final text.
+word into their own voice and posts it themselves, through their own
+voice guard, so write a draft worth revising, not a final text.
 
 Below are (1) the author's PLAYBOOK, their own rules for responding
 to review, for staleness and nudging, and for walking away; (2) the
@@ -839,45 +842,44 @@ def preflight() -> tuple[Path, str]:
 
 
 def state_run() -> int:
-    """--state: the free canary. Gather and print; no model call, no
-    draft, no playbook needed (state reading needs no judgment)."""
+    """--state: gather and print the state. No model call, no draft,
+    and no playbook needed."""
     root, branch = preflight()
     pr = gather_state(root, branch)
     if pr is None:
         state, line, notes = "no-pr-yet", "no PR found for this branch", []
     else:
-        # The canary reports the PR itself, never your run history:
+        # --state reports the PR itself, never your run history:
         # prev_fp stays None so nothing-new cannot become the headline
         # state of a look (a look is not a run).
         _, prev_stamp, _ = last_full_run(pr.get("url", "?"))
         state, line, notes = classify(pr, None, prev_stamp)
     report = state_report(root, branch, pr, state, line, notes)
     print(report)
-    print("pr-monitor: state only; no model call was made and nothing "
+    print("pr-monitor: state only. No Claude call was made and nothing "
           "was drafted. A full run (no flag) drafts the matching move.")
     write_log("state", root, branch, pr, state, line,
-              "none (state-only canary)")
+              "none (--state only)")
     return 0
 
 
 NON_MOVE_TEXT = {
     "no-pr-yet": (
-        "## The move: your gate report, unchanged\n\n"
-        "No PR was found for this branch, and that is an honest place "
-        "to be. The next-step list already exists and the monitor "
-        "will not re-derive it: read your ship-gate's latest report "
-        "({gate_note}). Whatever it quoted is the move; when the gate "
-        "passes and you open the PR, the monitor has something to "
-        "watch.\n"),
+        "## The move: your ship-gate report\n\n"
+        "No PR was found for this branch. If you haven't opened it "
+        "yet, your ship-gate's latest report is your next-step list "
+        "({gate_note}). When the ship-gate passes and you open the "
+        "PR, the monitor has something to read. If your PR is open, "
+        "see run-report.md for how to point the monitor at it.\n"),
     "nothing-new": (
         "## The move: wait\n\n"
         "The state is identical to your last full run's on this PR "
         "({stamp}): "
         "same head, same thread, same checks, same playbook. Waiting "
-        "is the move; a re-draft of the same state would say the same "
-        "thing for real money. drafted-move.md is untouched (the "
-        "draft from that run still stands). Come back when something "
-        "changes, or take the free look any time with --state.\n"),
+        "is the move, and a new draft would cost credit to say the "
+        "same thing. drafted-move.md is untouched, so the draft from "
+        "that run still stands. Run it again when something changes, "
+        "or use --state any time for free.\n"),
 }
 
 
@@ -909,10 +911,13 @@ def full_run() -> int:
             move = move_from_draft(drafted, form_name)
             stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
             draft = (f"# Drafted move ({stamp}): {move}\n\n"
-                     "> A DRAFT by design. Nothing has been posted, and "
-                     "nothing will be unless you post it: revise it "
-                     "into your own words, then ship it yourself "
-                     "(`gh pr comment`), through your own guard.\n\n"
+                     "> A DRAFT. Nothing has been posted, and nothing "
+                     "will be unless you post it. Copy the draft into "
+                     "my-reply.md in your clone, rewrite it in your "
+                     "own words, and "
+                     "post that file through Claude Code "
+                     "(`gh pr comment`), so your voice guard checks "
+                     "it. Never post this file.\n\n"
                      f"{drafted}\n")
 
     REPORT_PATH.write_text(report, encoding="utf-8")
@@ -930,9 +935,9 @@ def full_run() -> int:
         print(f"pr-monitor: drafted-move.md untouched; the draft from "
               "your last run still stands.")
     if state not in ("no-pr-yet", "nothing-new"):
-        print("pr-monitor: the draft is a draft. Revise it into your "
-              "own words before anything ships; posting is your hand, "
-              "through your guard.")
+        print("pr-monitor: this is a draft. Rewrite it in your own "
+              "words before you post anything, and post through Claude "
+              "Code so your voice guard checks it.")
     return 0
 
 
@@ -940,10 +945,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=(
         "pr-monitor: read your contribution's live state (read-only) "
         "and draft the matching next move. Run from inside your clone, "
-        "on your branch. --state is the free canary."))
+        "on your PR's branch. --state prints the state for free."))
     ap.add_argument("--state", action="store_true",
                     help="gather and print the state only: no model "
-                         "call, no draft, no cost (the wiring canary)")
+                         "call, no draft, no cost")
     args = ap.parse_args()
     try:
         return state_run() if args.state else full_run()

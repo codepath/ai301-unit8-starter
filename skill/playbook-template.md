@@ -1,57 +1,53 @@
 # Playbook: [Student name]
 
 <!--
-THE PLAYBOOK (the unit-8 hole, and the toolkit's last one). This file
-is your judgment about the post-ship conversation: how you answer
-review, how long quiet is normal for your repo, when a nudge is
-polite and when it is noise, and what would make walking away right.
-Staff never write it; the monitor folds it into every draft, and
-where your rule is stricter than the staff move form, your rule wins.
+Your playbook: the rules the PR monitor drafts from. It decides how
+you answer review, how many quiet days are normal for your repo, what
+a polite nudge says, and when closing your own PR is the right move.
+You write every word. Where your rule is stricter than the monitor's
+move forms, your rule wins.
 
-It lives beside the monitor as ~/.claude/pr-monitor/playbook.md (the
-install's third command, INSTALL.md section 1, places this template
-there under that name, once; fill it in place). The monitor refuses to draft while any section below is
-empty: an empty judgment file binds nothing, and a nudge with no
-threshold behind it would be the machine's judgment, not yours.
+It lives at ~/.claude/pr-monitor/playbook.md (the install's third
+command copies this template there once). Fill it in there. The
+monitor won't draft while any section below is empty, because a nudge
+with no threshold behind it would be the monitor's call, not yours.
 
-UNDER A PAGE. A playbook is judgment, not a policy manual: a few
-rules you actually mean, each concrete enough to decide a real case.
-You already wrote the prior art in unit 6: your voice guide's
-upstream section (claims, questions, pings) holds your rules for
-talking to maintainers, and its pings subsection is exactly the
-silence craft this file extends to PR threads. Steal from yourself.
+Keep it under a page: a few rules you mean, each concrete enough to
+decide a real case. The Upstream section of your voice guide, from
+unit 6, already has rules for claims, questions, and pings, and its
+pings rules are a good start for Nudge etiquette.
 
-Keep the four section headings exactly as they are (the monitor finds
-them by name). Delete this comment when the sections are filled: the
-playbook carries judgment, not scaffolding.
+Keep the four section headings exactly as they are, because the
+monitor finds them by name. Delete this comment when you're done.
 -->
 
 ## Response rules
 
-<!-- What a good response of YOURS opens with, and what it never
-does. Concrete beats noble: "answer the point in the first sentence"
-binds; "be professional" does not. 2-4 rules. -->
+<!-- What your replies to a reviewer open with, and what they never
+do. Make each rule concrete: "answer the reviewer's point in the first
+sentence" decides a case, "be professional" doesn't. 1 to 3 rules. -->
 
 ## Staleness thresholds
 
-<!-- How long is normal quiet for YOUR repo before a nudge is even
-on the table? Look at the repo's own rhythm (how fast were other
-PRs reviewed? does CONTRIBUTING.md state a wait?) and write a number
-of days with its reason. A different threshold for a first response
-vs a stalled thread is fine. The monitor computes the quiet days;
-this rule decides what they mean. -->
+<!-- How many quiet days are normal for your repo before you'd
+nudge? Check CONTRIBUTING.md for a stated wait, then look at five
+recent merged PRs and how many days each waited for a maintainer's
+first reply. Write a number of days and the reason. A different number
+for a first review and for a stalled review is fine. The monitor counts
+quiet days as days since anyone but you commented. -->
 
 ## Nudge etiquette
 
-<!-- Your rules for the one message a met threshold permits: what it
-contains, what it never contains, how often it can ever repeat
-(most playbooks say once). The unit-6 rules are the floor:
-self-contained, one ask, no @-pile. -->
+<!-- Your rules for the one nudge your threshold allows: what it
+says, what it never says, who it tags, and whether you'd ever send a
+second one. Start from your unit 6 pings rules: someone reading only
+this comment knows what the PR does, it asks for one thing, and it
+tags only the reviewer. -->
 
 ## Walk-away criteria
 
-<!-- What would make closing your own PR the right move (a maintainer
-says no, the issue gets fixed another way, the repo goes quiet for
-longer than you will wait)? And what does your dated close note say?
-Walking away recorded in your own words is a legitimate ending; the
-score was banked when the PR opened. -->
+<!-- When would closing your own PR be the right move (a maintainer
+says no, the issue gets fixed another way, the repo stays quiet longer
+than you'll wait)? And what would your close note say? Closing it
+yourself with a short note is an honest ending, and your PR was graded
+when you opened it. -->
