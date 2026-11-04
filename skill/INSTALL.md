@@ -90,8 +90,8 @@ available), so an old bot comment doesn't read as news.
   the line that names the repository. The
   monitor looks for your PR there. If it names your fork, run
   `gh repo set-default <owner>/<repo>` with the original repo's owner
-  and name (unit 7, step 11). It prints nothing when it works. Then
-  run again. If the repository is
+  and name (unit 7, step 11). When it works, it prints a line
+  starting with ✓ that names the repo. Then run again. If the repository is
   right, check that you're on your PR's branch, or run
   `gh pr checkout <number>` to switch to it.
 
