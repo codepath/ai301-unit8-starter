@@ -2,9 +2,9 @@
 
 <!--
 These are the frames the monitor's one drafting call fills, one per
-post-ship state. Staff wrote the frames; your playbook's rules decide
-inside them, and every drafted word is a draft until you revise it
-and ship it yourself through your guard. The runner reads exactly one
+state of an open PR. Staff wrote the frames; your playbook's rules
+decide inside them, and every drafted word is a draft until you
+rewrite it and post it yourself, through your voice guard. The runner reads exactly one
 section per run, matched by its heading; do not rename the headings.
 The two non-move states (no PR yet, nothing new) never reach a form:
 the runner writes those itself, free, because there are no words to
@@ -52,16 +52,18 @@ failing checks); lay out:
   monitor; say what the author should look at).
 - The safe order, as steps the author runs on their own fork branch:
   fetch the upstream base, rebase the branch onto it, resolve what
-  git flags, re-run the ship-gate (their manifest's checks and their
-  own rubric), then force-push to their fork with
-  `git push --force-with-lease`. Guest work: none of this needs
-  anyone's permission, and nothing is lost while the branch exists.
+  git flags, re-run the checks in their `ship-manifest.md`, then push
+  to their fork with `git push --force-with-lease`, because the rebase
+  rewrote the branch. Their clone's `origin` is their fork; if it has
+  no `upstream` remote yet, the first step is
+  `git remote add upstream <the original repo's URL>`. None of this
+  needs anyone's permission, and nothing is lost while the branch
+  exists.
 - For failing checks: read the check's own output first; the fix goes
   in a normal commit, and the batched-push rule applies if a review
   round is also open.
-- End with the state this plan should produce (a green, mergeable
-  branch) and the reminder that the gate is still on the door for
-  anything that ships.
+- End with the state this plan should produce: a green, mergeable
+  branch.
 
 ## Polite nudge
 
@@ -78,8 +80,8 @@ If the threshold is met, draft ONE message:
   assume the reader remembers the thread.
 - One ask, and only one: a review, a re-review, or an answer to one
   named question.
-- No @-pile, no urgency theater, no guilt. The unit-6 claim-craft
-  rules carry unchanged: maintainer time is a gift, silence is
+- No @-pile, no urgency theater, no guilt. The pings rules from the
+  author's unit 6 voice guide carry over unchanged: maintainer time is a gift, silence is
   usually a queue, and one polite surfacing is the entire move.
 - Apply the playbook's Nudge etiquette on top; the author's rules
   win where stricter.
@@ -96,7 +98,7 @@ The PR is merged. Draft the short close of the loop:
   issue, without volunteering for it in this message.
 - Nothing else. A merged thread is a finished conversation; the
   author's record keeping (the contribution story's Status line and
-  Maintainer Feedback log, the unit-8 Toolkit entry) happens in the
+  Maintainer Feedback log, the Unit 8 Toolkit entry) happens in the
   course repo, not in the maintainer's thread.
 - In the bracketed author-notes, not in the draft: a second
   contribution is welcome now that the loop is cheap, never required,
